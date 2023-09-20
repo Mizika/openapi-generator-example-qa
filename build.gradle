@@ -1,0 +1,88 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        maven {
+            url "https://plugins.gradle.org/m2/"
+        }
+    }
+    dependencies {
+        classpath "org.openapitools:openapi-generator-gradle-plugin:7.0.1"
+        classpath "io.qameta.allure.gradle.allure:allure-plugin:2.11.2"
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        url "https://plugins.gradle.org/m2/"
+    }
+}
+
+tasks.withType(JavaCompile) {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+def env = project.hasProperty("ENVIRONMENT") ? property("ENVIRONMENT").toLowerCase() : "test"
+
+apply plugin: 'java'
+apply plugin: "org.openapi.generator"
+apply plugin: "io.qameta.allure"
+apply from: "${rootDir}/gradle/globalConfigs/url-config-${env}.gradle"
+apply from: "${rootDir}/gradle/scripts/generateProduct.gradle"
+apply from: "${rootDir}/gradle/scripts/utils.gradle"
+
+allure {
+    version = '2.24.0'
+}
+
+project.ext.config
+        .each {
+            key, val ->
+                project.createTask(key, val, org.openapitools.generator.gradle.plugin.tasks.GenerateTask)
+        }
+
+group 'ru.mizika'
+version '1.0.0'
+
+configurations.all {
+    resolutionStrategy.eachDependency { details ->
+        if (details.requested.module.toString() == 'org.yaml:snakeyaml') {
+            details.artifactSelection {
+                it.selectArtifact(DependencyArtifact.DEFAULT_TYPE, null, null)
+            }
+        }
+    }
+}
+
+dependencies {
+    implementation 'org.junit.jupiter:junit-jupiter-api:5.9.2'
+    implementation 'org.junit.jupiter:junit-jupiter-engine:5.9.2'
+    implementation group: 'org.junit.jupiter', name: 'junit-jupiter-api', version: '5.9.2'
+    implementation group: 'org.openapitools', name: 'openapi-generator', version: '7.0.1'
+    implementation 'io.rest-assured:rest-assured:4.2.0'
+    implementation 'io.rest-assured:json-path:4.2.0'
+    implementation 'io.rest-assured:xml-path:4.2.0'
+    implementation 'io.rest-assured:rest-assured-common:4.2.0'
+    implementation 'io.qameta.allure:allure-java-commons:2.24.0'
+    implementation 'io.qameta.allure:allure-rest-assured:2.24.0'
+    implementation 'io.qameta.allure:allure-junit5:2.24.0'
+    implementation 'org.openapitools:jackson-databind-nullable:0.2.6'
+    implementation 'javax.annotation:javax.annotation-api:1.3.2'
+    implementation 'org.awaitility:awaitility:4.2.0'
+    testImplementation 'org.projectlombok:lombok:1.18.26'
+    testAnnotationProcessor 'org.projectlombok:lombok:1.18.26'
+    implementation 'com.github.javafaker:javafaker:1.0.2'
+}
+
+test {
+    ignoreFailures = true
+    maxHeapSize = "1024m"
+    testLogging {
+        events 'FAILED', 'SKIPPED', 'PASSED', 'STANDARD_ERROR', 'STANDARD_OUT'
+        showStandardStreams = false
+        exceptionFormat 'short'
+    }
+    useJUnitPlatform()
+    systemProperties(project.ext.flattenMap(project.ext.config))
+}

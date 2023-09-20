@@ -1,0 +1,18 @@
+project.ext {
+    flattenMap = {Map map -> return this.flattenMap(map)}
+}
+
+String concatenate(String k, String v) {
+    "${k}.${v}"
+}
+
+def flattenMap(Map map) {
+    map.collectEntries { k, v ->
+        v instanceof Map ?
+                flattenMap(v).collectEntries { k1, v1 ->
+                    def key = concatenate(k, k1)
+                    [(key): v1]
+                } :
+                [(k): v]
+    }
+}

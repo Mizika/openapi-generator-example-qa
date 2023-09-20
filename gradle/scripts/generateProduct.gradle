@@ -1,0 +1,60 @@
+project.ext {
+    createTask = { String productName, Object productMetadata, Object taskType ->
+        return this.createTask(productName, productMetadata, taskType)
+    }
+}
+
+void createTask(String productName, Object productMetadata, Object taskType) {
+    String basePackage = "ru.mizika.gen"
+    String taskName = "generate" + productName.capitalize()
+    String resolvedSpec = productMetadata.specUrl
+    task(type: taskType, group: "openapi-generator-example", taskName) {
+        generatorName = "java"
+        library = "rest-assured"
+        inputSpec = resolvedSpec
+        String filePathApi
+        String filePathModel
+        filePathApi = "${rootDir}/src/main/java/ru/mizika/gen/${productName}/api"
+        filePathModel = "${rootDir}/src/main/java/ru/mizika/gen/${productName}/model"
+        outputDir = rootDir.toString()
+        apiPackage = "${basePackage}.${productName}.api"
+        modelPackage = "${basePackage}.${productName}.model"
+        templateDir = "$rootDir/src/main/resources/templates/"
+        invokerPackage = basePackage
+        generateModelTests = false
+        generateModelDocumentation = false
+        generateApiTests = false
+        generateApiDocumentation = false
+        groupId = "ru.mizika.gen"
+        id = "client"
+        configOptions = [
+                dateLibrary         : "java8",
+                serializationLibrary: "jackson"
+        ]
+        globalProperties = [
+                docs  : "false",
+                apis  : productMetadata.apis,
+                models: "",
+        ]
+        additionalProperties = [
+                productName: productName.capitalize()
+        ]
+        skipValidateSpec = true
+        doFirst {
+            file(filePathApi).deleteDir()
+            file(filePathModel).deleteDir()
+        }
+        doLast {
+            FileCollection apiClient = files { file(filePathApi).listFiles() }
+            apiClient.each { apiFile ->
+                File file = new File(apiFile as String)
+                file.write(file.text.replaceAll("ProductApiApi", "ProductApi"))
+                String className = file.getText('UTF-8').find("public class .*")
+                        .replaceAll("public class ", "")
+                        .replaceAll(" \\{", "")
+                file.renameTo("${filePathApi}/${className}.java")
+            }
+        }
+    }
+}
+
